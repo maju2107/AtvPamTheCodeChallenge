@@ -1,0 +1,36 @@
+{
+  "expo": {
+    "name": "AgroCheck",
+    "slug": "agrocheck",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "newArchEnabled": true,
+    "ios": {
+      "supportsTablet": true,
+      "infoPlist": {
+        "NSCameraUsageDescription": "O AgroCheck usa a câmera para registrar evidências fotográficas das visitas técnicas.",
+        "NSContactsUsageDescription": "O AgroCheck usa os contatos do dispositivo para localizar produtores e responsáveis técnicos.",
+        "NSLocationWhenInUseUsageDescription": "O AgroCheck usa sua localização para registrar o ponto da visita técnica."
+      }
+    },
+    "android": {
+      "permissions": [
+        "CAMERA",
+        "READ_CONTACTS",
+        "ACCESS_COARSE_LOCATION",
+        "ACCESS_FINE_LOCATION"
+      ]
+    },
+    "plugins": [
+      [
+        "expo-image-picker",
+        {
+          "cameraPermission": "O AgroCheck precisa acessar a câmera para registrar evidências da visita técnica."
+        }
+      ],
+      "expo-location",
+      "expo-contacts"
+    ]
+  }
+}

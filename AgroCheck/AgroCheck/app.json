@@ -5,7 +5,6 @@
     "version": "1.0.0",
     "orientation": "portrait",
     "userInterfaceStyle": "light",
-    "newArchEnabled": true,
     "ios": {
       "supportsTablet": true,
       "infoPlist": {
@@ -30,7 +29,9 @@
         }
       ],
       "expo-location",
-      "expo-contacts"
+      "expo-contacts",
+      "expo-status-bar",
+      "expo-font"
     ]
   }
 }

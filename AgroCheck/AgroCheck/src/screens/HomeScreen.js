@@ -42,12 +42,6 @@ export default function HomeScreen({ navigation }) {
         onPress={() => navigation.navigate("Visitas")}
       />
 
-      <View style={styles.seniorBox}>
-        <Text style={styles.seniorTitle}>Nível Sênior</Text>
-        <Text style={styles.seniorText}>
-          Câmera com tratamento avançado de permissão, telemetria de movimento e consulta de contatos com paginação e filtro nativo.
-        </Text>
-      </View>
     </ScrollView>
   );
 }

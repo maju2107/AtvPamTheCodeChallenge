@@ -1,152 +1,327 @@
-import React, { useCallback, useEffect, useRef, useState } from "react";
-import {
-  ActivityIndicator,
-  FlatList,
-  StyleSheet,
-  Text,
-  TextInput,
-  View
-} from "react-native";
-import { Ionicons } from "@expo/vector-icons";
+import React, { useCallback, useEffect, useState } from 'react';
+import {View, Text, FlatList, Button, Alert, TextInput, ActivityIndicator} from 'react-native';
+import {getContactsPage, PAGE_SIZE} from '../services/contactsService';
+import styles from '../styles/contactsStyles';
 
-import ContatoItem from "../components/ContatoItem";
-import { buscarContatos } from "../services/contactsService";
-import { COLORS } from "../styles/globalStyles";
+const ContatosScreen = () => {
 
-const PAGE_SIZE = 30;
+   
+    const [contacts, setContacts] = useState([]);
+    const [search, setSearch] = useState('');
+    const [loading, setLoading] = useState(false);
+    const [hasMore, setHasMore] = useState(true);
+    const [pageOffset, setPageOffset] = useState(0);
 
-export default function ContatosScreen() {
-  const [contacts, setContacts] = useState([]);
-  const [search, setSearch] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [loadingMore, setLoadingMore] = useState(false);
-  const [hasNextPage, setHasNextPage] = useState(true);
-  const [error, setError] = useState("");
-  const offsetRef = useRef(0);
-  const requestIdRef = useRef(0);
+    const loadContacts = useCallback(
+        async (
+            reset = false,
+            searchTerm = search
+        ) => {
 
-  const loadPage = useCallback(async ({ reset = false, query = search } = {}) => {
-    if (reset && loading) return;
-    if (!reset && (loadingMore || !hasNextPage)) return;
+            if (loading) {
+                return;
+            }
 
-    const requestId = ++requestIdRef.current;
-    if (reset) setLoading(true);
-    else setLoadingMore(true);
-    setError("");
+            if (!reset && !hasMore) {
+                return;
+            }
 
-    try {
-      const offset = reset ? 0 : offsetRef.current;
-      const result = await buscarContatos({
-        pageSize: PAGE_SIZE,
-        pageOffset: offset,
-        name: query
-      });
 
-      // Evita que uma resposta antiga sobrescreva uma busca mais recente.
-      if (requestId !== requestIdRef.current) return;
+            setLoading(true);
 
-      setContacts((old) => (reset ? result.data : [...old, ...result.data]));
-      offsetRef.current = offset + result.data.length;
-      setHasNextPage(result.hasNextPage && result.data.length > 0);
-    } catch (err) {
-      if (requestId === requestIdRef.current) {
-        setError(err.message || "Não foi possível carregar os contatos.");
-      }
-    } finally {
-      if (requestId === requestIdRef.current) {
-        setLoading(false);
-        setLoadingMore(false);
-      }
-    }
-  }, [hasNextPage, loading, loadingMore, search]);
 
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      offsetRef.current = 0;
-      setHasNextPage(true);
-      loadPage({ reset: true, query: search });
-    }, 350);
+            try {
 
-    return () => clearTimeout(timer);
-  }, [search]);
+                const currentOffset = reset
+                    ? 0
+                    : pageOffset;
 
-  const renderItem = useCallback(({ item }) => <ContatoItem item={item} />, []);
+                const result = await getContactsPage(
+                    searchTerm,
+                    currentOffset
+                );
 
-  return (
-    <View style={styles.screen}>
-      <Text style={styles.title}>Contatos</Text>
-      <Text style={styles.subtitle}>
-        Consulta paginada: apenas uma pequena parte dos registros fica na memória.
-      </Text>
+                const newContacts = result.data;
 
-      <View style={styles.searchBox}>
-        <Ionicons name="search-outline" size={21} color={COLORS.muted} />
-        <TextInput
-          style={styles.searchInput}
-          value={search}
-          onChangeText={setSearch}
-          placeholder="Filtrar pelo nome..."
-          placeholderTextColor="#8A948D"
-          returnKeyType="search"
-        />
-      </View>
+                if (reset) {
 
-      {error ? <Text style={styles.error}>{error}</Text> : null}
+                    setContacts(newContacts);
 
-      {loading && contacts.length === 0 ? (
-        <View style={styles.center}>
-          <ActivityIndicator size="large" color={COLORS.primary} />
-          <Text style={styles.muted}>Consultando contatos...</Text>
+                } else {
+
+                    setContacts((previousContacts) => {
+
+                        const combinedContacts = [
+                            ...previousContacts,
+                            ...newContacts,
+                        ];
+
+                        return Array.from(
+                            new Map(
+                                combinedContacts.map(
+                                    (contact) => [
+                                        String(contact.id),
+                                        contact
+                                    ]
+                                )
+                            ).values()
+                        );
+                    });
+                }
+
+                setPageOffset(
+                    currentOffset + result.count
+                );
+
+                if (result.count < PAGE_SIZE) {
+
+                    setHasMore(false);
+
+                } else {
+
+                    setHasMore(true);
+                }
+
+                if (
+                    reset &&
+                    newContacts.length === 0
+                ) {
+
+                    Alert.alert(
+                        'Sem contatos',
+                        searchTerm.trim()
+                            ? 'Nenhum contato encontrado para essa busca.'
+                            : 'Nenhum contato encontrado.'
+                    );
+                }
+
+
+            } catch (error) {
+
+                console.error(
+                    'Erro ao carregar contatos:',
+                    error
+                );
+
+                if (
+                    error.message === 'PERMISSION_DENIED'
+                ) {
+
+                    Alert.alert(
+                        'Permissão Negada',
+                        'Permissão para acessar contatos foi negada.'
+                    );
+
+                } else {
+
+                    Alert.alert(
+                        'Erro',
+                        'Ocorreu um erro ao carregar os contatos.'
+                    );
+                }
+
+
+            } finally {
+
+                setLoading(false);
+            }
+
+        },
+        [
+            loading,
+            hasMore,
+            pageOffset,
+            search,
+        ]
+    );
+
+    useEffect(() => {
+
+        loadContacts(true);
+
+    }, []);
+
+
+    const handleLoadMore = () => {
+
+        if (
+            !loading &&
+            hasMore
+        ) {
+
+            loadContacts(false);
+        }
+    };
+
+    const handleSearchChange = (text) => {
+
+        setSearch(text);
+    };
+
+    const handleSearch = () => {
+
+        setContacts([]);
+        setPageOffset(0);
+        setHasMore(true);
+        loadContacts(
+            true,
+            search
+        );
+    };
+
+    const handleReload = () => {
+
+        setSearch('');
+        setContacts([]);
+        setPageOffset(0);
+        setHasMore(true);
+        loadContacts(
+            true,
+            ''
+        );
+    };
+
+    const renderItem = ({ item }) => {
+
+        const fullName = [
+            item.firstName,
+            item.lastName,
+        ]
+            .filter(Boolean)
+            .join(' ');
+
+
+        return (
+
+            <View style={styles.contactItem}>
+
+                <Text style={styles.contactName}>
+                    {fullName || 'Nome não informado'}
+                </Text>
+
+
+                {item.phoneNumbers?.map(
+                    (phone, index) => (
+
+                        <Text
+                            key={`${item.id}-phone-${index}`}
+                            style={styles.contactDetail}
+                        >
+                            📞 {phone.number}
+                        </Text>
+
+                    )
+                )}
+
+            </View>
+        );
+    };
+
+    const renderFooter = () => {
+
+        if (
+            !loading ||
+            contacts.length === 0
+        ) {
+            return null;
+        }
+
+        return (
+
+            <View style={{ padding: 16 }}>
+
+                <ActivityIndicator size="small" />
+
+            </View>
+        );
+    };
+
+
+    return (
+
+        <View style={styles.container}>
+
+            <TextInput
+                style={styles.searchInput}
+                placeholder="Buscar contato por nome..."
+                value={search}
+                onChangeText={handleSearchChange}
+                onSubmitEditing={handleSearch}
+                returnKeyType="search"
+                autoCorrect={false}
+            />
+
+            <View style={{ marginBottom: 10 }}>
+
+                <Button
+                    title="Buscar contatos"
+                    onPress={handleSearch}
+                />
+
+            </View>
+
+            <View style={{ marginBottom: 10 }}>
+
+                <Button
+                    title="Recarregar contatos"
+                    onPress={handleReload}
+                />
+
+            </View>
+
+            <FlatList
+
+                data={contacts}
+                keyExtractor={(item) =>
+                    String(item.id)
+                }
+                renderItem={renderItem}
+                contentContainerStyle={styles.list}
+                onEndReached={handleLoadMore}
+                onEndReachedThreshold={0.5}
+                initialNumToRender={10}
+                maxToRenderPerBatch={10}
+                windowSize={5}
+                updateCellsBatchingPeriod={50}
+                removeClippedSubviews={true}
+                ListFooterComponent={renderFooter}
+
+                ListEmptyComponent={() => {
+
+                    if (loading) {
+
+                        return (
+
+                            <ActivityIndicator
+                                size="large"
+                                style={{
+                                    marginTop: 30
+                                }}
+                            />
+
+                        );
+                    }
+
+
+                    return (
+
+                        <Text
+                            style={{
+                                textAlign: 'center',
+                                marginTop: 30
+                            }}
+                        >
+                            Nenhum contato encontrado.
+                        </Text>
+
+                    );
+                }}
+
+            />
+
         </View>
-      ) : (
-        <FlatList
-          data={contacts}
-          keyExtractor={(item, index) => item.id || `${item.name}-${index}`}
-          renderItem={renderItem}
-          onEndReached={() => loadPage()}
-          onEndReachedThreshold={0.5}
-          onRefresh={() => loadPage({ reset: true })}
-          refreshing={loading}
-          removeClippedSubviews
-          initialNumToRender={12}
-          maxToRenderPerBatch={10}
-          windowSize={7}
-          ListFooterComponent={
-            loadingMore ? (
-              <ActivityIndicator style={{ marginVertical: 18 }} color={COLORS.primary} />
-            ) : !hasNextPage && contacts.length > 0 ? (
-              <Text style={styles.footer}>Todos os resultados desta consulta foram carregados.</Text>
-            ) : null
-          }
-          ListEmptyComponent={
-            !loading ? <Text style={styles.empty}>Nenhum contato encontrado.</Text> : null
-          }
-          contentContainerStyle={{ paddingBottom: 25 }}
-        />
-      )}
-    </View>
-  );
-}
+    );
+};
 
-const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: COLORS.background, padding: 18 },
-  title: { fontSize: 27, fontWeight: "900", color: COLORS.text },
-  subtitle: { color: COLORS.muted, lineHeight: 20, marginTop: 5, marginBottom: 13 },
-  searchBox: {
-    minHeight: 50,
-    backgroundColor: COLORS.card,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    borderRadius: 13,
-    paddingHorizontal: 13,
-    flexDirection: "row",
-    alignItems: "center",
-    marginBottom: 12
-  },
-  searchInput: { flex: 1, marginLeft: 8, fontSize: 16, color: COLORS.text },
-  center: { flex: 1, alignItems: "center", justifyContent: "center" },
-  muted: { color: COLORS.muted, marginTop: 9 },
-  error: { color: COLORS.danger, marginBottom: 8 },
-  empty: { textAlign: "center", color: COLORS.muted, marginTop: 40 },
-  footer: { textAlign: "center", color: COLORS.muted, paddingVertical: 15, fontSize: 12 }
-});
+
+export default ContatosScreen;

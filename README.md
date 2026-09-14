@@ -36,3 +36,6 @@ Para testar câmera, localização, sensores e contatos, prefira um dispositivo 
 ## Observação importante sobre o acelerômetro
 
 O `expo-sensors` fornece `x`, `y` e `z` em unidades de **g**. Portanto, a resultante já pode ser comparada diretamente com `2.0`, sem dividir por 9.81.
+
+## Vídeo 
+https://youtu.be/0_g6JErcd-Q?si=wyTKII5gGVuEp566 

@@ -1,47 +1,119 @@
-import React, { useEffect, useState } from "react";
-import { FlatList, StyleSheet, Text, View } from "react-native";
+import React, { useCallback, useState } from "react";
+import { ActivityIndicator, Alert, FlatList, StyleSheet, Text, View } from "react-native";
+import { useFocusEffect } from "@react-navigation/native";
+
 import VisitaCard from "../components/VisitaCard";
+import { buscarVisitas } from "../services/storageService";
 import { COLORS } from "../styles/globalStyles";
 
-export default function VisitasScreen({ route }) {
+export default function VisitasScreen() {
   const [visitas, setVisitas] = useState([]);
+  const [carregando, setCarregando] = useState(true);
 
-  useEffect(() => {
-    const nova = route.params?.novaVisita;
-    if (!nova) return;
+  const carregarVisitas = async () => {
+    try {
+      setCarregando(true);
 
-    setVisitas((old) => {
-      if (old.some((item) => item.id === nova.id)) return old;
-      return [nova, ...old];
-    });
-  }, [route.params?.novaVisita]);
+      const dados = await buscarVisitas();
+
+      setVisitas(dados);
+    } catch (error) {
+      console.error("Erro ao carregar histórico:", error);
+
+      Alert.alert(
+        "Erro",
+        "Não foi possível carregar o histórico de auditorias."
+      );
+    } finally {
+      setCarregando(false);
+    }
+  };
+
+  useFocusEffect(
+    useCallback(() => {
+      carregarVisitas();
+    }, [])
+  );
 
   return (
     <View style={styles.screen}>
-      <Text style={styles.title}>Visitas registradas</Text>
-      <Text style={styles.subtitle}>
-        Histórico mantido durante a execução atual do aplicativo.
+      <Text style={styles.title}>
+        Visitas registradas
       </Text>
 
-      <FlatList
-        style={{ marginTop: 15 }}
-        data={visitas}
-        keyExtractor={(item) => item.id}
-        renderItem={({ item }) => <VisitaCard item={item} />}
-        ListEmptyComponent={
-          <Text style={styles.empty}>
-            Nenhuma auditoria registrada ainda.
+      <Text style={styles.subtitle}>
+        Histórico das auditorias salvas no dispositivo.
+      </Text>
+
+      {carregando ? (
+        <View style={styles.loading}>
+          <ActivityIndicator size="large" />
+
+          <Text style={styles.loadingText}>
+            Carregando histórico...
           </Text>
-        }
-        contentContainerStyle={{ paddingBottom: 25 }}
-      />
+        </View>
+      ) : (
+        <FlatList
+          style={styles.list}
+          data={visitas}
+          keyExtractor={(item) => String(item.id)}
+          renderItem={({ item }) => (
+            <VisitaCard item={item} />
+          )}
+          ListEmptyComponent={
+            <Text style={styles.empty}>
+              Nenhuma auditoria registrada ainda.
+            </Text>
+          }
+          contentContainerStyle={styles.listContent}
+        />
+      )}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: COLORS.background, padding: 18 },
-  title: { fontSize: 27, fontWeight: "900", color: COLORS.text },
-  subtitle: { color: COLORS.muted, lineHeight: 20, marginTop: 5 },
-  empty: { textAlign: "center", color: COLORS.muted, marginTop: 50 }
+  screen: {
+    flex: 1,
+    backgroundColor: COLORS.background,
+    padding: 18
+  },
+
+  title: {
+    fontSize: 27,
+    fontWeight: "900",
+    color: COLORS.text
+  },
+
+  subtitle: {
+    color: COLORS.muted,
+    lineHeight: 20,
+    marginTop: 5
+  },
+
+  list: {
+    marginTop: 15
+  },
+
+  listContent: {
+    paddingBottom: 25
+  },
+
+  loading: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center"
+  },
+
+  loadingText: {
+    color: COLORS.muted,
+    marginTop: 10
+  },
+
+  empty: {
+    textAlign: "center",
+    color: COLORS.muted,
+    marginTop: 50
+  }
 });

@@ -1,15 +1,5 @@
 import React, { useState } from "react";
-import {
-  Alert,
-  Image,
-  KeyboardAvoidingView,
-  Platform,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  View
-} from "react-native";
+import { Alert, Image, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 
 import BotaoCustomizado from "../components/BotaoCustomizado";
@@ -17,6 +7,8 @@ import { capturarFotoEvidencia } from "../services/cameraService";
 import { obterLocalizacaoAtual } from "../services/locationService";
 import useAcelerometro from "../hooks/useAcelerometro";
 import { COLORS } from "../styles/globalStyles";
+import { salvarVisita } from "../services/storageService";
+import PrecisaoGPS from "../components/PrecisaoGPS";
 
 export default function RegistroVisitaScreen({ navigation }) {
   const [produtor, setProdutor] = useState("");
@@ -50,23 +42,26 @@ export default function RegistroVisitaScreen({ navigation }) {
 
   async function finalizarAuditoria() {
     if (!produtor.trim() || !propriedade.trim()) {
-      Alert.alert("Dados incompletos", "Informe pelo menos o produtor e a propriedade antes de finalizar.");
+      Alert.alert(
+        "Dados incompletos",
+        "Informe pelo menos o produtor e a propriedade antes de finalizar."
+      );
       return;
     }
 
     setEnviando(true);
 
-    // Acelerômetro do Expo trabalha em g.
-    // O requisito do projeto bloqueia acima de 2.0g.
     const currentMagnitude = accelerationG;
     const observedPeak = Math.max(peakG, currentMagnitude);
 
     if (observedPeak > 2.0) {
       setEnviando(false);
+
       Alert.alert(
         "Instabilidade Física Detectada",
         "A auditoria não pode ser enviada porque foi detectada uma aceleração superior a 2.0g. Mantenha o dispositivo estável e tente novamente."
       );
+
       resetPeak();
       return;
     }
@@ -82,10 +77,33 @@ export default function RegistroVisitaScreen({ navigation }) {
       data: new Date().toISOString()
     };
 
-    setEnviando(false);
-    resetPeak();
+    try {
 
-    navigation.navigate("Visitas", { novaVisita: visita });
+      await salvarVisita(visita);
+
+      resetPeak();
+
+      Alert.alert(
+        "Auditoria concluída",
+        "A auditoria foi salva no dispositivo com sucesso.",
+        [
+          {
+            text: "OK",
+            onPress: () => navigation.navigate("Visitas")
+          }
+        ]
+      );
+    } catch (error) {
+      console.error("Erro ao salvar auditoria:", error);
+
+      Alert.alert(
+        "Erro ao salvar",
+        error.message ||
+          "Não foi possível salvar a auditoria. Tente novamente."
+      );
+    } finally {
+      setEnviando(false);
+    }
   }
 
   return (
@@ -147,9 +165,16 @@ export default function RegistroVisitaScreen({ navigation }) {
             icon={<Ionicons name="location-outline" size={21} color={COLORS.primaryDark} />}
           />
           {localizacao && (
-            <Text style={styles.locationText}>
-              {localizacao.latitude.toFixed(6)}, {localizacao.longitude.toFixed(6)}
-            </Text>
+            <>
+              <Text style={styles.locationText}>
+                {localizacao.latitude.toFixed(6)},{" "}
+                {localizacao.longitude.toFixed(6)}
+              </Text>
+
+              <PrecisaoGPS
+                accuracy={localizacao.accuracy}
+              />
+            </>
           )}
         </View>
 
